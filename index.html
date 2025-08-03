@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>원숭이의 산불 탈출 - 업그레이드 버전</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+        
+        #gameCanvas {
+            border: 3px solid #8B4513;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.4);
+            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 70%, #8B4513 100%);
+        }
+        
+        #gameInfo {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #333;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .controls {
+            margin-top: 10px;
+            padding: 15px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        #miniGameOverlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 1000;
+            border: 3px solid #FFD700;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+        }
+        
+        #miniGameKey {
+            font-size: 80px;
+            color: #FFD700;
+            margin: 20px 0;
+            font-weight: bold;
+            text-shadow: 0 0 20px #FFD700;
+        }
+        
+        #miniGameTimer {
+            font-size: 28px;
+            color: #FF6B6B;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        
+        #miniGameInstruction {
+            font-size: 20px;
+            margin: 15px 0;
+            color: #87CEEB;
+        }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        #startContent {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+        
+        .difficulty-btn {
+            margin: 10px;
+            padding: 15px 25px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .easy { background: #90EE90; }
+        .normal { background: #FFD700; }
+        .hard { background: #FF6B6B; color: white; }
+        
+        .difficulty-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        #settingsPanel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .powerup {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .fire-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #FF4500;
+            border-radius: 50%;
+            animation: float 2s infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-50px) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🐒 원숭이의 산불 탈출 🏃‍♂️</h1>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="gameInfo">
+            <div>체력: <span id="health">100</span> | 시간: <span id="time">∞</span> | 점수: <span id="score">0</span> | 나무: <span id="treeCount">1</span> | 레벨: <span id="level">1</span></div>
+            <div>최고점수: <span id="highScore">0</span> | 콤보: <span id="combo">0</span> | <span id="invincibilityStatus">무적 아이템 없음</span></div>
+        </div>
+        <div class="controls">
+            <strong>게임플레이:</strong> 완전 자동 게임! 원숭이가 나무 위에서 자동으로 이동합니다!<br>
+            <strong>미니게임:</strong> 나무가 불에 타면 자동으로 미니게임이 시작됩니다! 부드러운 점프로 다음 나무로 이동! | ESC: 일시정지
+        </div>
+    </div>
+
+    <!-- 시작 화면 -->
+    <div id="startScreen">
+        <div id="startContent">
+            <h1>🐒 원숭이의 산불 탈출 🏃‍♂️</h1>
+            <p>산불을 피해 무한한 나무들을 건너며 생존하세요!</p>
+            <h3>난이도를 선택하세요:</h3>
+            <button class="difficulty-btn easy" onclick="startGame('easy')">쉬움 (90초)</button>
+            <button class="difficulty-btn normal" onclick="startGame('normal')">보통 (60초)</button>
+            <button class="difficulty-btn hard" onclick="startGame('hard')">어려움 (30초)</button>
+            <div id="settingsPanel">
+                <label><input type="checkbox" id="soundToggle" checked> 사운드</label>
+                <label><input type="checkbox" id="musicToggle" checked> 음악</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- 미니게임 오버레이 -->
+    <div id="miniGameOverlay">
+        <h2 id="miniGameTitle">🎯 나무 건너기 도전!</h2>
+        <div id="miniGameInstruction">도전 과제를 완료하세요!</div>
+        <div id="miniGameContent"></div>
+        <div id="miniGameTimer">3.0초</div>
+    </div>
+
+    <script>
+        // 게임 캔버스 설정
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 게임 상태
+        let gameState = {
+            running: false,
+            paused: false,
+            score: 0,
+            highScore: localStorage.getItem('monkeyHighScore') || 0,
+            health: 100,
+            timeLeft: 60,
+            gameOver: false,
+            treeCount: 1,
+            level: 1,
+            combo: 0,
+            difficulty: 'normal',
+            miniGameActive: false,
+            miniGameType: '',
+            miniGameTimer: 3.0,
+            miniGameSuccess: false,
+            soundEnabled: true,
+            musicEnabled: true,
+            cameraX: 0,  // 화면 스크롤을 위한 카메라 X 위치
+            autoMoveSpeed: 2,  // 자동 이동 속도
+            nextTreeReady: false,  // 다음 나무로 이동할 준비가 되었는지
+            fireSpreadTime: 0  // 산불이 번지는 시간
+        };
+        
+        // 원숭이 캐릭터
+        const monkey = {
+            x: 100,
+            y: 300,  // 나무 위에서 시작
+            width: 40,
+            height: 50,
+            velocityX: 0,
+            velocityY: 0,
+            onTree: true,  // 나무 위에 있음
+            currentTree: 0,
+            color: '#8B4513',
+            jumpingToTree: false,
+            targetTree: null,
+            invincible: false,
+            invincibleTimer: 0,
+            animationFrame: 0,
+            autoMoving: true,  // 자동 이동 활성화
+            targetX: 100,  // 목표 X 위치
+            // 점프 애니메이션을 위한 변수들
+            jumpStartX: 0,
+            jumpStartY: 0,
+            jumpTargetX: 0,
+            jumpTargetY: 0,
+            jumpProgress: 0,
+            jumpDuration: 60,  // 점프에 걸리는 프레임 수 (1초)
+            jumpHeight: 80     // 점프 최대 높이
+        };
+        
+        // 나무 배열 (무한 생성)
+        const trees = [
+            { x: 50, y: 400, width: 60, height: 200, onFire: false, fireLevel: 0, id: 0, arrivalTime: null, fireStartTime: null }
+        ];
+        
+        // 무적 아이템 배열
+        const invincibilityItems = [];
+        
+        // 파티클 배열
+        const particles = [];
+        
+        // 불 파티클 배열
+        const fireParticles = [];
+        
+        // 연기 파티클 배열
+        const smokeParticles = [];
+        
+        // 키보드 입력
+        const keys = {};
+        
+        // 미니게임 키 배열
+        const miniGameKeys = ['A', 'S', 'D', 'W', 'Q', 'E', 'R', 'F', 'G', 'H', 'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M'];
+        
+        // 색깔 배열
+        const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+        
+        // 타이핑 게임 단어들
+        const typingWords = ['BANANA', 'JUMP', 'TREE', 'FIRE', 'MONKEY', 'ESCAPE', 'FAST', 'QUICK', 'RUN', 'SAFE'];
+        
+        // 미니게임 타입들
+        const miniGameTypes = [
+            'keyPress',      // 키 누르기
+            'mathPuzzle',    // 수학 퍼즐
+            'colorMatch',    // 색깔 맞추기
+            'typingGame',    // 타이핑 게임
+            'numberOrder'    // 숫자 순서
+        ];
+        
+        // 사운드 효과 (Web Audio API 사용)
+        let audioContext;
+        let sounds = {};
+        
+        // 사운드 초기화
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                createSounds();
+            } catch (e) {
+                console.log('Web Audio API not supported');
+            }
+        }
+        
+        // 사운드 생성
+        function createSounds() {
+            // 점프 사운드
+            sounds.jump = createTone(400, 0.1, 'sine');
+            // 무적 아이템 수집 사운드
+            sounds.collect = createTone(800, 0.2, 'square');
+            // 미니게임 성공 사운드
+            sounds.success = createTone(600, 0.3, 'triangle');
+            // 미니게임 실패 사운드
+            sounds.fail = createTone(200, 0.5, 'sawtooth');
+            // 불 사운드
+            sounds.fire = createTone(150, 0.1, 'noise');
+        }
+        
+        // 톤 생성
+        function createTone(frequency, duration, type) {
+            return function() {
+                if (!gameState.soundEnabled || !audioContext) return;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = type;
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            };
+        }
+        
+        // 게임 시작
+        function startGame(difficulty) {
+            gameState.difficulty = difficulty;
+            gameState.running = true;
+            gameState.timeLeft = difficulty === 'easy' ? 90 : difficulty === 'normal' ? 60 : 30;
+            gameState.health = 100;
+            gameState.score = 0;
+            gameState.treeCount = 1;
+            gameState.level = 1;
+            gameState.combo = 0;
+            gameState.cameraX = 0;  // 카메라 초기화
+            gameState.nextTreeReady = false; // 게임 시작 시 자동 이동 준비 상태 초기화
+            gameState.fireSpreadTime = 0;  // 산불 번짐 시간 초기화
+            gameState.invincibilityAvailable = false; // 무적 아이템 사용 가능 여부
+            
+            // 원숭이 초기 위치 설정 (첫 번째 나무 위에서 시작)
+            monkey.x = trees[0].x + trees[0].width/2 - monkey.width/2;  // 첫 번째 나무 위
+            monkey.y = trees[0].y - monkey.height;  // 첫 번째 나무 위
+            monkey.onTree = true;
+            monkey.currentTree = 0;
+            monkey.autoMoving = true;
+            monkey.jumpingToTree = false;
+            monkey.targetTree = null;
+            
+            // 첫 번째 나무에 도착한 시간 기록
+            trees[0].arrivalTime = 0;
+            trees[0].fireStartTime = 1; // 1초 후에 불붙기 시작
+            
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('highScore').textContent = gameState.highScore;
+            
+            initAudio();
+            gameLoop();
+        }
+        
+        // 배경 그리기 (스크롤링)
+        function drawBackground() {
+            // 하늘 그라데이션
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#90EE90');
+            gradient.addColorStop(1, '#8B4513');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 구름 (스크롤링)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (let i = 0; i < 5; i++) {
+                const cloudX = ((i * 200) - gameState.cameraX * 0.5) % (canvas.width + 200);
+                ctx.beginPath();
+                ctx.arc(cloudX, 50 + i * 20, 30, 0, Math.PI * 2);
+                ctx.arc(cloudX + 25, 50 + i * 20, 25, 0, Math.PI * 2);
+                ctx.arc(cloudX + 50, 50 + i * 20, 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // 이벤트 리스너
+        document.addEventListener('keydown', (e) => {
+            // ESC 키로 일시정지만 허용
+            if (e.key === 'Escape' && gameState.running) {
+                gameState.paused = !gameState.paused;
+                if (gameState.paused) {
+                    document.getElementById('startScreen').style.display = 'flex';
+                    document.getElementById('startContent').innerHTML = '<h2>일시정지</h2><button onclick="resumeGame()">계속하기</button>';
+                }
+            }
+            
+            // 미니게임 중 키 입력 처리만 허용
+            if (gameState.miniGameActive) {
+                handleMiniGameInput(e.key);
+            }
+        });
+        
+        // 키보드 입력은 미니게임에서만 사용하므로 keyup 이벤트 제거
+        
+        // 게임 재개
+        function resumeGame() {
+            gameState.paused = false;
+            document.getElementById('startScreen').style.display = 'none';
+        }
+        
+        // 새 나무 생성 함수
+        function createNewTree() {
+            const lastTree = trees[trees.length - 1];
+            const newX = lastTree.x + 150 + Math.random() * 50;
+            
+            // 나무 높이에 더 큰 차이를 주고, 바닥에 닿도록 조정
+            const baseHeight = 100; // 기본 높이
+            const randomVariation = (Math.random() - 0.5) * 60; // 더 큰 랜덤 변동 (30씩 위아래)
+            const newHeight = Math.max(80, Math.min(160, baseHeight + randomVariation)); // 높이 범위 확대
+            
+            // 나무가 바닥에 닿도록 y 위치 조정 (canvas.height - newHeight - 10)
+            const newY = canvas.height - newHeight - 10;
+            
+            return {
+                x: newX,
+                y: newY,
+                width: 60,
+                height: newHeight,
+                onFire: false,
+                fireLevel: 0,
+                id: trees.length,
+                arrivalTime: null,  // 원숭이가 도착한 시간
+                fireStartTime: null  // 불이 붙기 시작할 시간
+            };
+        }
+        
+
+        
+        // 파티클 생성
+        function createParticle(x, y, color, type = 'normal') {
+            return {
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: (Math.random() - 0.5) * 10,
+                life: 1.0,
+                color: color,
+                type: type
+            };
+        }
+        
+        // 미니게임 시작
+        function startMiniGame() {
+            gameState.miniGameActive = true;
+            gameState.miniGameTimer = 3.0;
+            gameState.miniGameType = miniGameTypes[Math.floor(Math.random() * miniGameTypes.length)];
+            gameState.miniGameSuccess = false;
+            
+            // 미니게임 UI 표시
+            document.getElementById('miniGameOverlay').style.display = 'block';
+            setupMiniGame();
+            
+            // 미니게임 타이머 시작
+            miniGameTimer = setInterval(() => {
+                gameState.miniGameTimer -= 0.1;
+                document.getElementById('miniGameTimer').textContent = gameState.miniGameTimer.toFixed(1) + '초';
+                
+                if (gameState.miniGameTimer <= 0) {
+                    miniGameFail();
+                }
+            }, 100);
+        }
+        
+        // 미니게임 설정
+        function setupMiniGame() {
+            const content = document.getElementById('miniGameContent');
+            const title = document.getElementById('miniGameTitle');
+            const instruction = document.getElementById('miniGameInstruction');
+            
+            switch(gameState.miniGameType) {
+                case 'keyPress':
+                    const key = miniGameKeys[Math.floor(Math.random() * miniGameKeys.length)];
+                    gameState.miniGameKey = key;
+                    title.textContent = '🎯 키 누르기 도전!';
+                    instruction.textContent = '아래 키를 빠르게 누르세요!';
+                    content.innerHTML = `<div id="miniGameKey">${key}</div>`;
+                    break;
+                    
+                case 'mathPuzzle':
+                    const num1 = Math.floor(Math.random() * 10) + 1;
+                    const num2 = Math.floor(Math.random() * 10) + 1;
+                    const answer = num1 + num2;
+                    gameState.miniGameAnswer = answer;
+                    gameState.mathInput = '';
+                    title.textContent = '🧮 수학 퍼즐!';
+                    instruction.textContent = '정답을 입력하세요!';
+                    content.innerHTML = `<div style="font-size: 48px; margin: 20px;">${num1} + ${num2} = ?</div>
+                                       <div style="font-size: 24px; margin: 10px;">입력: <span id="mathInputText" style="color: #87CEEB;">${gameState.mathInput}</span></div>`;
+                    break;
+                    
+                case 'colorMatch':
+                    const targetColor = colors[Math.floor(Math.random() * colors.length)];
+                    gameState.miniGameColor = targetColor;
+                    title.textContent = '🎨 색깔 맞추기!';
+                    instruction.textContent = '지시된 색깔을 클릭하세요!';
+                    content.innerHTML = `<div style="font-size: 24px; margin: 20px;">색깔: <span style="color: ${targetColor};">${targetColor}</span></div>
+                                       <div id="colorButtons"></div>`;
+                    
+                    const colorButtons = document.getElementById('colorButtons');
+                    const shuffledColors = [...colors].sort(() => Math.random() - 0.5);
+                    shuffledColors.forEach(color => {
+                        const btn = document.createElement('button');
+                        btn.style.cssText = `width: 60px; height: 60px; background: ${color}; margin: 5px; border: none; border-radius: 10px; cursor: pointer;`;
+                        btn.onclick = () => checkColorMatch(color);
+                        colorButtons.appendChild(btn);
+                    });
+                    break;
+                    
+                case 'typingGame':
+                    const word = typingWords[Math.floor(Math.random() * typingWords.length)];
+                    gameState.miniGameWord = word;
+                    gameState.typedWord = '';
+                    title.textContent = '⌨️ 타이핑 게임!';
+                    instruction.textContent = '단어를 빠르게 타이핑하세요!';
+                    content.innerHTML = `<div style="font-size: 36px; margin: 20px; color: #FFD700;">${word}</div>
+                                       <div style="font-size: 24px; margin: 10px;">입력: <span id="typedText" style="color: #87CEEB;">${gameState.typedWord}</span></div>`;
+                    break;
+                    
+                case 'numberOrder':
+                    const numbers = [];
+                    for (let i = 1; i <= 5; i++) {
+                        numbers.push(i);
+                    }
+                    // 숫자를 랜덤하게 섞기
+                    const shuffledNumbers = [...numbers].sort(() => Math.random() - 0.5);
+                    gameState.miniGameNumbers = shuffledNumbers;
+                    gameState.currentNumberIndex = 0;
+                    title.textContent = '🔢 숫자 순서!';
+                    instruction.textContent = '1부터 5까지 순서대로 클릭하세요!';
+                    content.innerHTML = `<div id="numberButtons" style="margin: 20px;"></div>`;
+                    
+                    const numberButtons = document.getElementById('numberButtons');
+                    shuffledNumbers.forEach((num, index) => {
+                        const btn = document.createElement('button');
+                        btn.style.cssText = `width: 60px; height: 60px; margin: 5px; border: none; border-radius: 10px; background: #4CAF50; color: white; font-size: 24px; cursor: pointer;`;
+                        btn.textContent = num;
+                        btn.onclick = () => checkNumberOrder(num);
+                        numberButtons.appendChild(btn);
+                    });
+                    break;
+            }
+        }
+        
+        // 미니게임 입력 처리
+        function handleMiniGameInput(key) {
+            switch(gameState.miniGameType) {
+                case 'keyPress':
+                    if (key.toUpperCase() === gameState.miniGameKey) {
+                        miniGameSuccess();
+                    }
+                    break;
+                    
+                case 'mathPuzzle':
+                    if (key >= '0' && key <= '9') {
+                        gameState.mathInput += key;
+                        const mathInputText = document.getElementById('mathInputText');
+                        if (mathInputText) {
+                            mathInputText.textContent = gameState.mathInput;
+                        }
+                        
+                        // 정답 체크
+                        if (parseInt(gameState.mathInput) === gameState.miniGameAnswer) {
+                            miniGameSuccess();
+                        }
+                    } else if (key === 'Backspace') {
+                        gameState.mathInput = gameState.mathInput.slice(0, -1);
+                        const mathInputText = document.getElementById('mathInputText');
+                        if (mathInputText) {
+                            mathInputText.textContent = gameState.mathInput;
+                        }
+                    } else if (key === 'Enter') {
+                        if (parseInt(gameState.mathInput) === gameState.miniGameAnswer) {
+                            miniGameSuccess();
+                        } else {
+                            miniGameFail();
+                        }
+                    }
+                    break;
+                    
+                case 'typingGame':
+                    if (key.length === 1) {  // 한 글자만 입력
+                        gameState.typedWord += key.toUpperCase();
+                        const typedText = document.getElementById('typedText');
+                        if (typedText) {
+                            typedText.textContent = gameState.typedWord;
+                        }
+                        
+                        // 단어 완성 체크
+                        if (gameState.typedWord === gameState.miniGameWord) {
+                            miniGameSuccess();
+                        }
+                    } else if (key === 'Backspace') {
+                        gameState.typedWord = gameState.typedWord.slice(0, -1);
+                        const typedText = document.getElementById('typedText');
+                        if (typedText) {
+                            typedText.textContent = gameState.typedWord;
+                        }
+                    }
+                    break;
+            }
+        }
+        
+        // 색깔 맞추기 체크
+        function checkColorMatch(color) {
+            if (color === gameState.miniGameColor) {
+                miniGameSuccess();
+            } else {
+                miniGameFail();
+            }
+        }
+        
+        // 숫자 순서 체크
+        function checkNumberOrder(clickedNumber) {
+            const expectedNumber = gameState.currentNumberIndex + 1;
+            if (clickedNumber === expectedNumber) {
+                gameState.currentNumberIndex++;
+                
+                // 모든 숫자를 순서대로 클릭했는지 체크
+                if (gameState.currentNumberIndex >= 5) {
+                    miniGameSuccess();
+                }
+            } else {
+                miniGameFail();
+            }
+        }
+        
+        // 미니게임 성공
+        function miniGameSuccess() {
+            gameState.miniGameActive = false;
+            gameState.miniGameSuccess = true;
+            clearInterval(miniGameTimer);
+            
+            if (sounds.success) sounds.success();
+            
+            document.getElementById('miniGameOverlay').style.display = 'none';
+            
+            // 점프 애니메이션이 이미 시작되었으므로 추가 작업 불필요
+            // 원숭이는 자동으로 점프 애니메이션을 통해 다음 나무로 이동함
+        }
+        
+        // 미니게임 실패
+        function miniGameFail() {
+            gameState.miniGameActive = false;
+            clearInterval(miniGameTimer);
+            
+            if (sounds.fail) sounds.fail();
+            
+            document.getElementById('miniGameOverlay').style.display = 'none';
+            gameState.combo = 0;
+            
+            // 무적 아이템이 있으면 사용하고 자동으로 다음 나무로 이동
+            if (gameState.invincibilityAvailable) {
+                gameState.invincibilityAvailable = false;
+                console.log("🛡️ 무적 아이템 사용! 자동으로 다음 나무로 이동합니다.");
+                
+                // 다음 나무로 자동 이동
+                const nextTreeIndex = monkey.currentTree + 1;
+                if (nextTreeIndex < trees.length) {
+                    const nextTree = trees[nextTreeIndex];
+                    monkey.jumpingToTree = true;
+                    monkey.targetTree = nextTree;
+                    monkey.jumpStartX = monkey.x;
+                    monkey.jumpStartY = monkey.y;
+                    monkey.jumpTargetX = nextTree.x + nextTree.width/2 - monkey.width/2;
+                    monkey.jumpTargetY = nextTree.y - monkey.height;
+                    monkey.jumpProgress = 0;
+                    monkey.jumpDuration = 60;
+                    monkey.jumpHeight = 80;
+                    
+                    // 3번 나무부터 화면 스크롤 시작
+                    if (gameState.treeCount >= 3) {
+                        gameState.cameraX = nextTree.x - canvas.width/2;
+                    }
+                    gameState.treeCount++;
+                }
+            } else {
+                // 게임 오버
+                gameState.gameOver = true;
+                gameState.running = false;
+            }
+        }
+        
+        // 파티클 효과 생성
+        function createParticleEffect(x, y, color, type) {
+            for (let i = 0; i < 10; i++) {
+                particles.push(createParticle(x, y, color, type));
+            }
+        }
+        
+        // 무적 아이템 생성 함수
+        function createInvincibilityItem() {
+            const treeIndex = Math.floor(Math.random() * trees.length);
+            const tree = trees[treeIndex];
+            return {
+                x: tree.x + tree.width/2 - 15,
+                y: tree.y - 50, // 나무 위로 이동
+                width: 30,
+                height: 30,
+                collected: false,
+                animation: 0,
+                treeId: tree.id
+            };
+        }
+        
+        // 원숭이 그리기 (애니메이션 포함)
+        function drawMonkey() {
+            monkey.animationFrame += 0.1;
+            
+            // 무적 상태일 때 깜빡임 효과
+            if (monkey.invincible) {
+                if (Math.floor(monkey.animationFrame * 10) % 2 === 0) return;
+            }
+            
+            // 카메라 스크롤 적용된 원숭이 위치
+            const drawX = monkey.x - gameState.cameraX;
+            const drawY = monkey.y;
+            
+            // 화면 밖의 원숭이는 그리지 않음
+            if (drawX + monkey.width < 0 || drawX > canvas.width) return;
+            
+            // 점프 중일 때 회전 효과
+            if (monkey.jumpingToTree) {
+                const progress = monkey.jumpProgress / monkey.jumpDuration;
+                const rotation = progress * 360; // 점프 중 360도 회전
+                
+                ctx.save();
+                ctx.translate(drawX + monkey.width/2, drawY + monkey.height/2);
+                ctx.rotate(rotation * Math.PI / 180);
+                ctx.translate(-(drawX + monkey.width/2), -(drawY + monkey.height/2));
+            }
+            
+            // 몸체
+            ctx.fillStyle = monkey.color;
+            ctx.fillRect(drawX, drawY, monkey.width, monkey.height);
+            
+            // 얼굴
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(drawX + 20, drawY + 15, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+                              // 귀
+                  ctx.fillStyle = '#8B4513';
+                  ctx.beginPath();
+                  ctx.ellipse(drawX + 8, drawY + 8, 6, 8, 0, 0, Math.PI * 2);
+                  ctx.ellipse(drawX + 32, drawY + 8, 6, 8, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                  
+                  // 귀 안쪽
+                  ctx.fillStyle = '#FFB6C1';
+                  ctx.beginPath();
+                  ctx.ellipse(drawX + 8, drawY + 8, 3, 4, 0, 0, Math.PI * 2);
+                  ctx.ellipse(drawX + 32, drawY + 8, 3, 4, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                  
+                  // 눈
+                  ctx.fillStyle = 'black';
+                  ctx.beginPath();
+                  ctx.arc(drawX + 17, drawY + 12, 2, 0, Math.PI * 2);
+                  ctx.arc(drawX + 23, drawY + 12, 2, 0, Math.PI * 2);
+                  ctx.fill();
+            
+            // 입 (애니메이션)
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const mouthY = drawY + 18 + Math.sin(monkey.animationFrame) * 2;
+            ctx.arc(drawX + 20, mouthY, 3, 0, Math.PI);
+            ctx.stroke();
+            
+            // 점프 중일 때 회전 효과 복원
+            if (monkey.jumpingToTree) {
+                ctx.restore();
+                
+                // 점프 궤적 효과 (원숭이의 실제 점프 경로를 따라감)
+                ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                
+                // 포물선 궤적 그리기
+                const startDrawX = monkey.jumpStartX - gameState.cameraX;
+                const targetDrawX = monkey.jumpTargetX - gameState.cameraX;
+                const startY = monkey.jumpStartY + monkey.height/2;
+                const targetY = monkey.jumpTargetY + monkey.height/2;
+                
+                ctx.moveTo(startDrawX + monkey.width/2, startY);
+                
+                // 포물선을 여러 점으로 나누어 그리기
+                for (let i = 1; i <= 20; i++) {
+                    const t = i / 20;
+                    const x = startDrawX + monkey.width/2 + (targetDrawX - startDrawX) * t;
+                    const y = startY + (targetY - startY) * t - monkey.jumpHeight * Math.sin(Math.PI * t);
+                    ctx.lineTo(x, y);
+                }
+                
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        // 나무 그리기
+        function drawTrees() {
+            trees.forEach((tree, index) => {
+                const drawX = tree.x - gameState.cameraX;
+                
+                // 화면 밖의 나무는 그리지 않음
+                if (drawX + tree.width < 0 || drawX > canvas.width) {
+                    return;
+                }
+                
+                // 나무 몸통 (갈색)
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(drawX, tree.y, tree.width, tree.height);
+                
+                // 나무 잎 (초록색)
+                ctx.fillStyle = '#228B22';
+                ctx.beginPath();
+                ctx.arc(drawX + tree.width/2, tree.y, tree.width * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 나뭇가지 제거됨 - 깔끔한 나무 디자인
+                
+                // 불이 붙은 나무 그리기
+                if (tree.onFire) {
+                    tree.fireLevel = Math.min(tree.fireLevel + 0.1, 10);
+                    
+                    const fireHeight = tree.height * 0.3;
+                    const shake = Math.sin(Date.now() * 0.01) * 2;
+                    const fireIntensity = Math.min(tree.fireLevel / 10, 1);
+                    
+                    // 불꽃 효과 (더 두껍고 자연스러운 불꽃)
+                    for (let i = 0; i < 5; i++) {
+                        const flameOffset = Math.sin(Date.now() * 0.01 + i * 0.5) * 8;
+                        const flameHeight = fireHeight * (0.4 + i * 0.1); // 높이를 낮춤 (0.7 -> 0.4, 0.15 -> 0.1)
+                        const flameWidth = 15 + i * 3; // 불꽃을 더 두껍게
+                        
+                        // 불꽃 색상 (노란색에서 빨간색으로)
+                        const flameColor = i === 0 ? `rgba(255, 255, 0, ${fireIntensity * 0.9})` :
+                                          i === 1 ? `rgba(255, 200, 0, ${fireIntensity * 0.8})` :
+                                          i === 2 ? `rgba(255, 150, 0, ${fireIntensity * 0.7})` :
+                                          i === 3 ? `rgba(255, 100, 0, ${fireIntensity * 0.6})` :
+                                          `rgba(255, 50, 0, ${fireIntensity * 0.5})`;
+                        
+                        ctx.fillStyle = flameColor;
+                        ctx.beginPath();
+                        ctx.moveTo(drawX + tree.width/2 + flameOffset, tree.y + tree.height - flameHeight);
+                        ctx.quadraticCurveTo(drawX + tree.width/2 + flameOffset + flameWidth, tree.y + tree.height - flameHeight * 0.6, drawX + tree.width/2 + flameOffset, tree.y + tree.height);
+                        ctx.quadraticCurveTo(drawX + tree.width/2 + flameOffset - flameWidth, tree.y + tree.height - flameHeight * 0.6, drawX + tree.width/2 + flameOffset, tree.y + tree.height - flameHeight);
+                        ctx.fill();
+                    }
+                    
+                    // 불똥 파티클 생성 (더 많은 불똥)
+                    if (Math.random() < 0.7) {
+                        for (let i = 0; i < 5; i++) {
+                            fireParticles.push({
+                                x: drawX + Math.random() * tree.width,
+                                y: tree.y + tree.height - Math.random() * fireHeight * 0.6, // 높이 범위를 줄임
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: -Math.random() * 4 - 1, // 높이를 낮춤 (6 -> 4, 2 -> 1)
+                                life: 1.0,
+                                size: Math.random() * 4 + 2
+                            });
+                        }
+                    }
+                    
+                    // 연기 효과 (더 많은 연기)
+                    if (Math.random() < 0.4) {
+                        for (let i = 0; i < 3; i++) {
+                            smokeParticles.push({
+                                x: drawX + tree.width/2 + (Math.random() - 0.5) * 30,
+                                y: tree.y + tree.height - fireHeight * 0.6 + Math.random() * 10, // 높이를 낮춤
+                                vx: (Math.random() - 0.5) * 1.5,
+                                vy: -Math.random() * 2 - 0.5, // 높이를 낮춤 (3 -> 2, 1 -> 0.5)
+                                life: 1.0,
+                                size: Math.random() * 12 + 6
+                            });
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 무적 아이템 그리기 (애니메이션)
+        function drawInvincibilityItems() {
+            invincibilityItems.forEach(item => {
+                if (!item.collected) {
+                    item.animation += 0.1;
+                    const bounce = Math.sin(item.animation) * 3;
+                    const drawX = item.x - gameState.cameraX;  // 카메라 스크롤 적용
+                    
+                    // 화면 밖의 아이템은 그리지 않음
+                    if (drawX + item.width < 0 || drawX > canvas.width) return;
+                    
+                    // 바나나 모양 그리기
+                    ctx.fillStyle = '#FFFF00';
+                    ctx.beginPath();
+                    ctx.ellipse(drawX + 15, item.y + 15 + bounce, 12, 8, Math.PI/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 바나나 테두리
+                    ctx.strokeStyle = '#FFA500';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // 바나나 껍질 효과
+                    ctx.strokeStyle = '#FF8C00';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(drawX + 15, item.y + 15 + bounce, 8, 0, Math.PI);
+                    ctx.stroke();
+                }
+            });
+        }
+        
+
+        
+        // 파티클 그리기
+        function drawParticles() {
+            particles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= 0.02;
+                
+                if (particle.life <= 0) {
+                    particles.splice(index, 1);
+                    return;
+                }
+                
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.fillRect(particle.x, particle.y, 4, 4);
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        // 불 파티클 그리기
+        function drawFireParticles() {
+            fireParticles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= 0.01;
+                
+                if (particle.life <= 0) {
+                    fireParticles.splice(index, 1);
+                    return;
+                }
+                
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = '#FF4500';
+                ctx.fillRect(particle.x, particle.y, particle.size || 3, particle.size || 3);
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        // 연기 파티클 그리기
+        function drawSmokeParticles() {
+            smokeParticles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= 0.005;
+                
+                if (particle.life <= 0) {
+                    smokeParticles.splice(index, 1);
+                    return;
+                }
+                
+                ctx.globalAlpha = particle.life * 0.7;
+                ctx.fillStyle = `rgba(128, 128, 128, ${particle.life})`;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        // 충돌 감지
+        function checkCollisions() {
+            // 무적 아이템 수집
+            invincibilityItems.forEach(item => {
+                if (!item.collected &&
+                    monkey.x < item.x + item.width &&
+                    monkey.x + monkey.width > item.x &&
+                    monkey.y < item.y + item.height &&
+                    monkey.y + monkey.height > item.y) {
+                    item.collected = true;
+                    gameState.invincibilityAvailable = true;
+                    gameState.score += 50;
+                    gameState.combo++;
+                    
+                    if (sounds.collect) sounds.collect();
+                    createParticleEffect(item.x, item.y, '#FFD700', 'collect');
+                }
+            });
+            
+            // 불에 닿으면 체력 감소
+            if (!monkey.invincible) {
+                trees.forEach(tree => {
+                    const treeDrawX = tree.x - gameState.cameraX;  // 카메라 스크롤 고려
+                    if (tree.onFire &&
+                        monkey.x < treeDrawX + tree.width &&
+                        monkey.x + monkey.width > treeDrawX &&
+                        monkey.y < tree.y + tree.height &&
+                        monkey.y + monkey.height > tree.y) {
+                        gameState.health -= 0.5;
+                        gameState.combo = 0;
+                        
+                        if (sounds.fire) sounds.fire();
+                    }
+                });
+            }
+        }
+        
+
+        
+        // 원숭이 업데이트
+        function updateMonkey() {
+            if (gameState.miniGameActive || gameState.paused) return;
+            
+            // 무적 타이머 업데이트
+            if (monkey.invincible) {
+                monkey.invincibleTimer -= 1/60;
+                if (monkey.invincibleTimer <= 0) {
+                    monkey.invincible = false;
+                }
+            }
+            
+            // 점프 애니메이션 중일 때
+            if (monkey.jumpingToTree) {
+                monkey.jumpProgress += 1;
+                const progress = monkey.jumpProgress / monkey.jumpDuration;
+                
+                if (progress >= 1) {
+                    // 점프 완료
+                    monkey.jumpingToTree = false;
+                    monkey.onTree = true;
+                    
+
+                    
+                    monkey.currentTree = monkey.targetTree.id;
+                    monkey.x = monkey.targetTree.x + monkey.targetTree.width/2 - monkey.width/2;
+                    monkey.y = monkey.targetTree.y - monkey.height;
+                    monkey.targetTree = null;
+                    monkey.jumpProgress = 0;
+                    
+                    // 나무에 도착한 시간 기록
+                    const currentTime = gameState.fireSpreadTime;
+                    trees[monkey.currentTree].arrivalTime = currentTime;
+                    trees[monkey.currentTree].fireStartTime = currentTime + 1; // 1초 후에 불붙기 시작
+                    
+                    gameState.treeCount++;
+                    gameState.score += 50 + (gameState.combo * 10);
+                    gameState.combo++;
+                    
+                    // 3번 나무부터 화면 스크롤 시작
+                    if (gameState.treeCount >= 3) {
+                        gameState.cameraX = monkey.x - canvas.width/2;
+                    }
+                    
+                    // 콤보 보너스
+                    if (gameState.combo >= 5) {
+                        gameState.score += 100;
+                        createParticleEffect(monkey.x, monkey.y, '#FFD700', 'combo');
+                    }
+                } else {
+                    // 점프 애니메이션 계산
+                    const easeInOut = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                    
+                    // X 위치 (선형 보간)
+                    monkey.x = monkey.jumpStartX + (monkey.jumpTargetX - monkey.jumpStartX) * easeInOut;
+                    
+                    // Y 위치 (포물선)
+                    const jumpCurve = Math.sin(progress * Math.PI);
+                    monkey.y = monkey.jumpStartY + (monkey.jumpTargetY - monkey.jumpStartY) * easeInOut - monkey.jumpHeight * jumpCurve;
+                }
+                return;
+            }
+            
+            // 자동 이동 시스템 - 원숭이는 나무 위에 고정되어 있음
+            // 사용자 입력은 무시하고 자동으로만 동작
+            monkey.velocityX = 0;  // 원숭이는 움직이지 않음
+            
+            // 현재 나무가 불에 타고 있고, 충분히 타면 자동으로 다음 나무로 이동
+            const currentTree = trees[monkey.currentTree];
+            if (currentTree && currentTree.onFire && currentTree.fireLevel > 3 && !monkey.jumpingToTree) {  // fireLevel을 5에서 3으로 낮춤
+                const nextTreeIndex = monkey.currentTree + 1;
+                
+                if (nextTreeIndex < trees.length) {
+                    const nextTree = trees[nextTreeIndex];
+                    const distance = nextTree.x - currentTree.x;
+                    
+                    if (distance < 200 && !nextTree.onFire) {
+                        // 점프 시작
+                        monkey.jumpingToTree = true;
+                        monkey.targetTree = nextTree;
+                        monkey.jumpStartX = monkey.x;
+                        monkey.jumpStartY = monkey.y;
+                        monkey.jumpTargetX = nextTree.x + nextTree.width/2 - monkey.width/2;
+                        monkey.jumpTargetY = nextTree.y - monkey.height;
+                        monkey.jumpProgress = 0;
+                        monkey.onTree = false;
+                        
+                        // 미니게임 시작
+                        startMiniGame();
+                    }
+                }
+            }
+            
+            // 사용자 입력은 완전히 무시 - 원숭이는 자동으로만 동작
+            // 나무 오르기/내리기, 점프 등 모든 수동 조작 제거
+            
+            // 원숭이는 항상 현재 나무 위에 고정 (점프 중이 아닐 때만)
+            if (monkey.onTree && currentTree && !monkey.jumpingToTree) {
+                monkey.x = currentTree.x + currentTree.width/2 - monkey.width/2;
+                monkey.y = currentTree.y - monkey.height;
+            }
+        }
+        
+
+        
+        // 산불 시스템
+        function updateFire() {
+            const currentTime = Math.floor(gameState.timeLeft);
+            gameState.fireSpreadTime += 1/60;  // 산불 번짐 시간 증가
+            
+            // 원숭이가 도착한 후 1초 후에 불이 붙도록 수정
+            trees.forEach((tree, index) => {
+                // fireStartTime이 설정되어 있고, 현재 시간이 fireStartTime에 도달했으면 불붙기 시작
+                if (tree.fireStartTime !== null && gameState.fireSpreadTime >= tree.fireStartTime && !tree.onFire) {
+                    tree.onFire = true;
+                }
+                
+                // 불 강도 증가 (속도를 더 늦춤)
+                if (tree.onFire && tree.fireLevel < 10) {
+                    tree.fireLevel += 0.02;  // 0.03에서 0.02로 줄여서 더 느리게
+                }
+            });
+            
+            // 새 나무 생성 (화면에 보이는 나무가 5개 미만일 때)
+            const visibleTrees = trees.filter(tree => {
+                const drawX = tree.x - gameState.cameraX;
+                return drawX < canvas.width + 100 && drawX > -100;
+            });
+            
+            if (visibleTrees.length < 5) {
+                trees.push(createNewTree());
+                
+                // 새 나무에 무적 아이템 생성 (20% 확률)
+                if (Math.random() < 0.2) {
+                    invincibilityItems.push(createInvincibilityItem());
+                }
+            }
+            
+            // 레벨 업
+            gameState.level = Math.floor(gameState.treeCount / 5) + 1;
+        }
+        
+        // 게임 오버 체크
+        function checkGameOver() {
+            // 체력이 0이 되면 게임 오버
+            if (gameState.health <= 0) {
+                gameState.gameOver = true;
+                gameState.running = false;
+            }
+            
+            // 체력이 0이 되거나 시간이 0이 되면 게임 오버
+            if (gameState.health <= 0 || gameState.timeLeft <= 0) {
+                gameState.gameOver = true;
+                gameState.running = false;
+            }
+            
+            // 현재 나무가 불에 타고 있고, 충분히 타면 게임 오버
+            if (monkey.onTree && trees[monkey.currentTree]) {
+                const currentTree = trees[monkey.currentTree];
+                const treeScreenX = currentTree.x - gameState.cameraX;
+                
+                // 나무가 화면에 완전히 보이고 완전히 타면 게임 오버
+                if (treeScreenX >= 0 && treeScreenX + currentTree.width <= canvas.width && currentTree.fireLevel >= 10) {
+                    gameState.gameOver = true;
+                    gameState.running = false;
+                }
+            }
+            
+            // 바닥에 닿으면 게임 오버 (이미 updateMonkey에서 처리됨)
+        }
+        
+        // UI 업데이트
+        function updateUI() {
+            document.getElementById('health').textContent = Math.max(0, Math.floor(gameState.health));
+            document.getElementById('time').textContent = Math.max(0, Math.floor(gameState.timeLeft));
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('treeCount').textContent = gameState.treeCount;
+            document.getElementById('level').textContent = gameState.level;
+            document.getElementById('combo').textContent = gameState.combo;
+            
+            // 무적 아이템 상태 표시
+            const invincibilityStatus = document.getElementById('invincibilityStatus');
+            if (invincibilityStatus) {
+                if (gameState.invincibilityAvailable) {
+                    invincibilityStatus.textContent = '🛡️ 무적 아이템 보유';
+                    invincibilityStatus.style.color = '#FFD700';
+                } else {
+                    invincibilityStatus.textContent = '무적 아이템 없음';
+                    invincibilityStatus.style.color = '#666';
+                }
+            }
+        }
+        
+        // 게임 루프
+        function gameLoop() {
+            if (!gameState.running || gameState.paused) {
+                if (gameState.gameOver) {
+                    // 최고 점수 업데이트
+                    if (gameState.score > gameState.highScore) {
+                        gameState.highScore = gameState.score;
+                        localStorage.setItem('monkeyHighScore', gameState.highScore);
+                    }
+                    
+                    // 게임 오버 화면
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = 'red';
+                    ctx.font = '48px Arial';
+                    ctx.fillText('게임 오버!', 250, 200);
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = '24px Arial';
+                    ctx.fillText(`최종 점수: ${gameState.score}`, 300, 250);
+                    ctx.fillText(`도달한 나무: ${gameState.treeCount}개`, 280, 280);
+                    ctx.fillText(`최고 콤보: ${gameState.combo}`, 280, 310);
+                    ctx.fillText(`레벨: ${gameState.level}`, 280, 340);
+                    ctx.fillText('새로고침하여 다시 시작', 250, 380);
+                }
+                return;
+            }
+            
+            // 화면 클리어
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 배경 그리기
+            drawBackground();
+
+            // 게임 요소 업데이트
+            updateMonkey();
+            updateFire();
+
+            checkCollisions();
+            checkGameOver();
+            
+            // 게임 요소 그리기
+            drawTrees();
+            drawInvincibilityItems();
+            drawMonkey();
+            drawParticles();
+            drawFireParticles();
+            drawSmokeParticles();
+            
+            // UI 업데이트
+            updateUI();
+            
+            gameState.timeLeft -= 1/60;
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 게임 시작
+        console.log("🐒 원숭이의 산불 탈출 게임 시작!");
+        document.getElementById('highScore').textContent = gameState.highScore;
+    </script>
+</body>
+</html> 
