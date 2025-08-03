@@ -167,6 +167,71 @@
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
             100% { transform: translateY(-50px) rotate(360deg); opacity: 0; }
         }
+        
+        /* PC에서 가상 키보드 숨기기 */
+        @media (min-width: 769px) {
+            #numberPad, #letterPad {
+                display: none !important;
+            }
+        }
+        
+        /* 모바일 터치 최적화 */
+        @media (max-width: 768px) {
+            #miniGameOverlay {
+                width: 90%;
+                max-width: 400px;
+                padding: 20px;
+            }
+            
+            #miniGameKey {
+                font-size: 60px;
+            }
+            
+            #miniGameTimer {
+                font-size: 24px;
+            }
+            
+            #miniGameInstruction {
+                font-size: 18px;
+            }
+            
+            /* 터치 버튼 최적화 */
+            button {
+                min-height: 44px; /* iOS 권장 터치 크기 */
+                touch-action: manipulation;
+            }
+            
+            /* 숫자 패드 버튼 */
+            #numberPad button {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+                margin: 3px;
+            }
+            
+            /* 알파벳 패드 버튼 */
+            #letterPad button {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+                margin: 2px;
+            }
+            
+            /* 색깔 버튼 */
+            #colorButtons button {
+                width: 50px;
+                height: 50px;
+                margin: 3px;
+            }
+            
+            /* 숫자 순서 버튼 */
+            #numberButtons button {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+                margin: 3px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -174,8 +239,8 @@
         <h1>🐒 원숭이의 산불 탈출 🏃‍♂️</h1>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="gameInfo">
-            <div>체력: <span id="health">100</span> | 시간: <span id="time">∞</span> | 점수: <span id="score">0</span> | 나무: <span id="treeCount">1</span> | 레벨: <span id="level">1</span></div>
-            <div>최고점수: <span id="highScore">0</span> | 콤보: <span id="combo">0</span> | <span id="invincibilityStatus">무적 아이템 없음</span></div>
+            <div>체력: <span id="health">100</span> | 점수: <span id="score">0</span> | 나무: <span id="treeCount">1</span> | 레벨: <span id="level">1</span></div>
+            <div>최고점수: <span id="highScore">0</span> | 콤보: <span id="combo">0</span> | 바나나: <span id="bananaCount">0</span> | <span id="invincibilityStatus">무적 아이템 없음</span></div>
         </div>
         <div class="controls">
             <strong>게임플레이:</strong> 완전 자동 게임! 원숭이가 나무 위에서 자동으로 이동합니다!<br>
@@ -188,10 +253,10 @@
         <div id="startContent">
             <h1>🐒 원숭이의 산불 탈출 🏃‍♂️</h1>
             <p>산불을 피해 무한한 나무들을 건너며 생존하세요!</p>
-            <h3>난이도를 선택하세요:</h3>
-            <button class="difficulty-btn easy" onclick="startGame('easy')">쉬움 (90초)</button>
-            <button class="difficulty-btn normal" onclick="startGame('normal')">보통 (60초)</button>
-            <button class="difficulty-btn hard" onclick="startGame('hard')">어려움 (30초)</button>
+            <h3>미니게임 난이도를 선택하세요:</h3>
+            <button class="difficulty-btn easy" onclick="startGame('easy')">쉬움 (5초/문제)</button>
+            <button class="difficulty-btn normal" onclick="startGame('normal')">보통 (3초/문제)</button>
+            <button class="difficulty-btn hard" onclick="startGame('hard')">어려움 (2초/문제)</button>
             <div id="settingsPanel">
                 <label><input type="checkbox" id="soundToggle" checked> 사운드</label>
                 <label><input type="checkbox" id="musicToggle" checked> 음악</label>
@@ -224,6 +289,7 @@
             treeCount: 1,
             level: 1,
             combo: 0,
+            bananasCollected: 0, // 바나나 수집 카운트
             difficulty: 'normal',
             miniGameActive: false,
             miniGameType: '',
@@ -267,7 +333,7 @@
         
         // 나무 배열 (무한 생성)
         const trees = [
-            { x: 50, y: 400, width: 60, height: 200, onFire: false, fireLevel: 0, id: 0, arrivalTime: null, fireStartTime: null }
+            { x: 50, y: 400, width: 60, height: 200, onFire: false, fireLevel: 0, id: 0, arrivalTime: null, fireStartTime: null, falling: false, fallAngle: 0, fallSpeed: 0 }
         ];
         
         // 무적 아이템 배열
@@ -281,6 +347,9 @@
         
         // 연기 파티클 배열
         const smokeParticles = [];
+        
+        // 바나나 배열
+        const bananas = [];
         
         // 키보드 입력
         const keys = {};
@@ -357,16 +426,24 @@
         function startGame(difficulty) {
             gameState.difficulty = difficulty;
             gameState.running = true;
-            gameState.timeLeft = difficulty === 'easy' ? 90 : difficulty === 'normal' ? 60 : 30;
+            gameState.timeLeft = Infinity; // 무한 시간 (시간 제한 없음)
             gameState.health = 100;
             gameState.score = 0;
             gameState.treeCount = 1;
             gameState.level = 1;
             gameState.combo = 0;
+            gameState.bananasCollected = 0;
             gameState.cameraX = 0;  // 카메라 초기화
             gameState.nextTreeReady = false; // 게임 시작 시 자동 이동 준비 상태 초기화
             gameState.fireSpreadTime = 0;  // 산불 번짐 시간 초기화
             gameState.invincibilityAvailable = false; // 무적 아이템 사용 가능 여부
+            
+            // 배열 초기화
+            bananas.length = 0;
+            invincibilityItems.length = 0;
+            particles.length = 0;
+            fireParticles.length = 0;
+            smokeParticles.length = 0;
             
             // 원숭이 초기 위치 설정 (첫 번째 나무 위에서 시작)
             monkey.x = trees[0].x + trees[0].width/2 - monkey.width/2;  // 첫 번째 나무 위
@@ -427,12 +504,56 @@
             }
         });
         
+        // 모바일 터치 이벤트 방지 (버튼 클릭만 허용)
+        document.addEventListener('touchstart', (e) => {
+            // 버튼이나 클릭 가능한 요소가 아닌 경우 터치 이벤트 방지
+            if (!e.target.matches('button, input, select, textarea')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // 모바일에서 줌 방지
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
+        
+        document.addEventListener('gesturechange', (e) => {
+            e.preventDefault();
+        });
+        
+        document.addEventListener('gestureend', (e) => {
+            e.preventDefault();
+        });
+        
         // 키보드 입력은 미니게임에서만 사용하므로 keyup 이벤트 제거
         
         // 게임 재개
         function resumeGame() {
             gameState.paused = false;
             document.getElementById('startScreen').style.display = 'none';
+        }
+        
+        // 바나나 생성 함수
+        function createBanana() {
+            return {
+                x: Math.random() * (canvas.width - 30) + gameState.cameraX,
+                y: Math.random() * (canvas.height - 200) + 100, // 하늘과 나무 사이
+                width: 20,
+                height: 15,
+                color: '#FFFF00',
+                collected: false,
+                animation: 0,
+                bounce: 0
+            };
+        }
+        
+        // 나무 쓰러지기 함수
+        function makeTreeFall(treeIndex) {
+            if (treeIndex >= 0 && treeIndex < trees.length && !trees[treeIndex].falling) {
+                trees[treeIndex].falling = true;
+                trees[treeIndex].fallSpeed = 2; // 쓰러지는 속도
+                console.log(`🌳 나무 ${treeIndex}가 쓰러집니다!`);
+            }
         }
         
         // 새 나무 생성 함수
@@ -457,7 +578,10 @@
                 fireLevel: 0,
                 id: trees.length,
                 arrivalTime: null,  // 원숭이가 도착한 시간
-                fireStartTime: null  // 불이 붙기 시작할 시간
+                fireStartTime: null,  // 불이 붙기 시작할 시간
+                falling: false,      // 쓰러지는 상태
+                fallAngle: 0,        // 쓰러지는 각도
+                fallSpeed: 0         // 쓰러지는 속도
             };
         }
         
@@ -479,7 +603,8 @@
         // 미니게임 시작
         function startMiniGame() {
             gameState.miniGameActive = true;
-            gameState.miniGameTimer = 3.0;
+            // 난이도에 따라 미니게임 타이머 설정
+            gameState.miniGameTimer = gameState.difficulty === 'easy' ? 5.0 : gameState.difficulty === 'normal' ? 3.0 : 2.0;
             gameState.miniGameType = miniGameTypes[Math.floor(Math.random() * miniGameTypes.length)];
             gameState.miniGameSuccess = false;
             
@@ -496,6 +621,12 @@
                     miniGameFail();
                 }
             }, 100);
+        }
+        
+        // 모바일 기기 감지
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                   (window.innerWidth <= 768 && window.innerHeight <= 1024);
         }
         
         // 미니게임 설정
@@ -520,9 +651,34 @@
                     gameState.miniGameAnswer = answer;
                     gameState.mathInput = '';
                     title.textContent = '🧮 수학 퍼즐!';
-                    instruction.textContent = '정답을 입력하세요!';
-                    content.innerHTML = `<div style="font-size: 48px; margin: 20px;">${num1} + ${num2} = ?</div>
-                                       <div style="font-size: 24px; margin: 10px;">입력: <span id="mathInputText" style="color: #87CEEB;">${gameState.mathInput}</span></div>`;
+                    
+                    if (isMobile()) {
+                        // 모바일: 가상 숫자 패드 표시
+                        instruction.textContent = '정답을 입력하세요!';
+                        content.innerHTML = `<div style="font-size: 48px; margin: 20px;">${num1} + ${num2} = ?</div>
+                                           <div style="font-size: 24px; margin: 10px;">입력: <span id="mathInputText" style="color: #87CEEB;">${gameState.mathInput}</span></div>
+                                           <div id="numberPad" style="margin: 20px;"></div>
+                                           <div style="margin: 10px;">
+                                               <button onclick="clearMathInput()" style="padding: 10px 20px; margin: 5px; background: #FF6B6B; color: white; border: none; border-radius: 10px; font-size: 18px;">지우기</button>
+                                               <button onclick="submitMathAnswer()" style="padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 10px; font-size: 18px;">확인</button>
+                                           </div>`;
+                        
+                        // 숫자 패드 생성
+                        const numberPad = document.getElementById('numberPad');
+                        for (let i = 0; i <= 9; i++) {
+                            const btn = document.createElement('button');
+                            btn.style.cssText = `width: 60px; height: 60px; margin: 5px; border: none; border-radius: 10px; background: #4CAF50; color: white; font-size: 24px; cursor: pointer;`;
+                            btn.textContent = i;
+                            btn.onclick = () => addMathDigit(i);
+                            numberPad.appendChild(btn);
+                        }
+                    } else {
+                        // PC: 키보드 입력 안내
+                        instruction.textContent = '키보드로 정답을 입력하세요! (Enter로 확인)';
+                        content.innerHTML = `<div style="font-size: 48px; margin: 20px;">${num1} + ${num2} = ?</div>
+                                           <div style="font-size: 24px; margin: 10px;">입력: <span id="mathInputText" style="color: #87CEEB;">${gameState.mathInput}</span></div>
+                                           <div style="font-size: 18px; margin: 20px; color: #FFD700;">키보드로 숫자를 입력하고 Enter를 누르세요!</div>`;
+                    }
                     break;
                     
                 case 'colorMatch':
@@ -548,9 +704,34 @@
                     gameState.miniGameWord = word;
                     gameState.typedWord = '';
                     title.textContent = '⌨️ 타이핑 게임!';
-                    instruction.textContent = '단어를 빠르게 타이핑하세요!';
-                    content.innerHTML = `<div style="font-size: 36px; margin: 20px; color: #FFD700;">${word}</div>
-                                       <div style="font-size: 24px; margin: 10px;">입력: <span id="typedText" style="color: #87CEEB;">${gameState.typedWord}</span></div>`;
+                    
+                    if (isMobile()) {
+                        // 모바일: 가상 알파벳 패드 표시
+                        instruction.textContent = '단어를 빠르게 타이핑하세요!';
+                        content.innerHTML = `<div style="font-size: 36px; margin: 20px; color: #FFD700;">${word}</div>
+                                           <div style="font-size: 24px; margin: 10px;">입력: <span id="typedText" style="color: #87CEEB;">${gameState.typedWord}</span></div>
+                                           <div id="letterPad" style="margin: 20px;"></div>
+                                           <div style="margin: 10px;">
+                                               <button onclick="clearTypingInput()" style="padding: 10px 20px; margin: 5px; background: #FF6B6B; color: white; border: none; border-radius: 10px; font-size: 18px;">지우기</button>
+                                           </div>`;
+                        
+                        // 알파벳 패드 생성
+                        const letterPad = document.getElementById('letterPad');
+                        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                        for (let i = 0; i < alphabet.length; i++) {
+                            const btn = document.createElement('button');
+                            btn.style.cssText = `width: 40px; height: 40px; margin: 3px; border: none; border-radius: 8px; background: #4CAF50; color: white; font-size: 16px; cursor: pointer;`;
+                            btn.textContent = alphabet[i];
+                            btn.onclick = () => addTypingLetter(alphabet[i]);
+                            letterPad.appendChild(btn);
+                        }
+                    } else {
+                        // PC: 키보드 입력 안내
+                        instruction.textContent = '키보드로 단어를 타이핑하세요!';
+                        content.innerHTML = `<div style="font-size: 36px; margin: 20px; color: #FFD700;">${word}</div>
+                                           <div style="font-size: 24px; margin: 10px;">입력: <span id="typedText" style="color: #87CEEB;">${gameState.typedWord}</span></div>
+                                           <div style="font-size: 18px; margin: 20px; color: #FFD700;">키보드로 단어를 타이핑하세요! (Backspace로 지우기)</div>`;
+                    }
                     break;
                     
                 case 'numberOrder':
@@ -578,7 +759,59 @@
             }
         }
         
-        // 미니게임 입력 처리
+        // 모바일용 수학 입력 함수들
+        function addMathDigit(digit) {
+            gameState.mathInput += digit;
+            const mathInputText = document.getElementById('mathInputText');
+            if (mathInputText) {
+                mathInputText.textContent = gameState.mathInput;
+            }
+            
+            // 정답 체크
+            if (parseInt(gameState.mathInput) === gameState.miniGameAnswer) {
+                miniGameSuccess();
+            }
+        }
+        
+        function clearMathInput() {
+            gameState.mathInput = '';
+            const mathInputText = document.getElementById('mathInputText');
+            if (mathInputText) {
+                mathInputText.textContent = gameState.mathInput;
+            }
+        }
+        
+        function submitMathAnswer() {
+            if (parseInt(gameState.mathInput) === gameState.miniGameAnswer) {
+                miniGameSuccess();
+            } else {
+                miniGameFail();
+            }
+        }
+        
+        // 모바일용 타이핑 입력 함수들
+        function addTypingLetter(letter) {
+            gameState.typedWord += letter;
+            const typedText = document.getElementById('typedText');
+            if (typedText) {
+                typedText.textContent = gameState.typedWord;
+            }
+            
+            // 단어 완성 체크
+            if (gameState.typedWord === gameState.miniGameWord) {
+                miniGameSuccess();
+            }
+        }
+        
+        function clearTypingInput() {
+            gameState.typedWord = '';
+            const typedText = document.getElementById('typedText');
+            if (typedText) {
+                typedText.textContent = gameState.typedWord;
+            }
+        }
+        
+        // 미니게임 입력 처리 (키보드용)
         function handleMiniGameInput(key) {
             switch(gameState.miniGameType) {
                 case 'keyPress':
@@ -589,49 +822,19 @@
                     
                 case 'mathPuzzle':
                     if (key >= '0' && key <= '9') {
-                        gameState.mathInput += key;
-                        const mathInputText = document.getElementById('mathInputText');
-                        if (mathInputText) {
-                            mathInputText.textContent = gameState.mathInput;
-                        }
-                        
-                        // 정답 체크
-                        if (parseInt(gameState.mathInput) === gameState.miniGameAnswer) {
-                            miniGameSuccess();
-                        }
+                        addMathDigit(key);
                     } else if (key === 'Backspace') {
-                        gameState.mathInput = gameState.mathInput.slice(0, -1);
-                        const mathInputText = document.getElementById('mathInputText');
-                        if (mathInputText) {
-                            mathInputText.textContent = gameState.mathInput;
-                        }
+                        clearMathInput();
                     } else if (key === 'Enter') {
-                        if (parseInt(gameState.mathInput) === gameState.miniGameAnswer) {
-                            miniGameSuccess();
-                        } else {
-                            miniGameFail();
-                        }
+                        submitMathAnswer();
                     }
                     break;
                     
                 case 'typingGame':
                     if (key.length === 1) {  // 한 글자만 입력
-                        gameState.typedWord += key.toUpperCase();
-                        const typedText = document.getElementById('typedText');
-                        if (typedText) {
-                            typedText.textContent = gameState.typedWord;
-                        }
-                        
-                        // 단어 완성 체크
-                        if (gameState.typedWord === gameState.miniGameWord) {
-                            miniGameSuccess();
-                        }
+                        addTypingLetter(key.toUpperCase());
                     } else if (key === 'Backspace') {
-                        gameState.typedWord = gameState.typedWord.slice(0, -1);
-                        const typedText = document.getElementById('typedText');
-                        if (typedText) {
-                            typedText.textContent = gameState.typedWord;
-                        }
+                        clearTypingInput();
                     }
                     break;
             }
@@ -836,6 +1039,44 @@
             }
         }
         
+        // 바나나 그리기
+        function drawBananas() {
+            bananas.forEach(banana => {
+                if (!banana.collected) {
+                    // 바나나 애니메이션 (떠다니는 효과)
+                    banana.animation += 0.1;
+                    const bounce = Math.sin(banana.animation) * 3;
+                    
+                    const drawX = banana.x - gameState.cameraX;
+                    const drawY = banana.y + bounce;
+                    
+                    // 화면 밖의 바나나는 그리지 않음
+                    if (drawX + banana.width < 0 || drawX > canvas.width) {
+                        return;
+                    }
+                    
+                    // 바나나 몸통 (노란색 곡선 모양)
+                    ctx.fillStyle = banana.color;
+                    ctx.beginPath();
+                    ctx.ellipse(drawX + 10, drawY + 7.5, 10, 7.5, Math.PI/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 바나나 껍질 (갈색 점)
+                    ctx.fillStyle = '#8B4513';
+                    ctx.beginPath();
+                    ctx.arc(drawX + 8, drawY + 6, 2, 0, Math.PI * 2);
+                    ctx.arc(drawX + 12, drawY + 6, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 바나나 반짝임 효과
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(drawX + 7, drawY + 5, 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+        
         // 나무 그리기
         function drawTrees() {
             trees.forEach((tree, index) => {
@@ -846,15 +1087,30 @@
                     return;
                 }
                 
+                // 쓰러지는 애니메이션 적용
+                if (tree.falling) {
+                    tree.fallAngle += tree.fallSpeed * 0.1;
+                    if (tree.fallAngle >= Math.PI / 2) {
+                        tree.fallAngle = Math.PI / 2; // 완전히 쓰러짐
+                    }
+                }
+                
+                // 회전 변환 적용
+                ctx.save();
+                ctx.translate(drawX + tree.width/2, tree.y + tree.height);
+                ctx.rotate(tree.fallAngle);
+                
                 // 나무 몸통 (갈색)
                 ctx.fillStyle = '#8B4513';
-                ctx.fillRect(drawX, tree.y, tree.width, tree.height);
+                ctx.fillRect(-tree.width/2, -tree.height, tree.width, tree.height);
                 
                 // 나무 잎 (초록색)
                 ctx.fillStyle = '#228B22';
                 ctx.beginPath();
-                ctx.arc(drawX + tree.width/2, tree.y, tree.width * 0.8, 0, Math.PI * 2);
+                ctx.arc(0, -tree.height, tree.width * 0.8, 0, Math.PI * 2);
                 ctx.fill();
+                
+                ctx.restore();
                 
                 // 나뭇가지 제거됨 - 깔끔한 나무 디자인
                 
@@ -1013,6 +1269,24 @@
         
         // 충돌 감지
         function checkCollisions() {
+            // 바나나 수집
+            bananas.forEach(banana => {
+                if (!banana.collected &&
+                    monkey.x < banana.x + banana.width &&
+                    monkey.x + monkey.width > banana.x &&
+                    monkey.y < banana.y + banana.height &&
+                    monkey.y + monkey.height > banana.y) {
+                    banana.collected = true;
+                    gameState.health += 10; // 바나나 하나당 체력 10 증가
+                    gameState.score += 20;
+                    gameState.combo++;
+                    gameState.bananasCollected++; // 바나나 수집 카운트 증가
+                    
+                    if (sounds.collect) sounds.collect();
+                    createParticleEffect(banana.x, banana.y, '#FFFF00', 'collect');
+                }
+            });
+            
             // 무적 아이템 수집
             invincibilityItems.forEach(item => {
                 if (!item.collected &&
@@ -1079,6 +1353,12 @@
                     monkey.y = monkey.targetTree.y - monkey.height;
                     monkey.targetTree = null;
                     monkey.jumpProgress = 0;
+                    
+                    // 이전 나무 쓰러뜨리기
+                    const previousTreeIndex = monkey.currentTree - 1;
+                    if (previousTreeIndex >= 0) {
+                        makeTreeFall(previousTreeIndex);
+                    }
                     
                     // 나무에 도착한 시간 기록
                     const currentTime = gameState.fireSpreadTime;
@@ -1188,6 +1468,11 @@
                 }
             }
             
+            // 바나나 생성 (3초마다)
+            if (Math.random() < 0.02) { // 약 3초마다 (60fps * 3초 * 0.02 = 3.6초)
+                bananas.push(createBanana());
+            }
+            
             // 레벨 업
             gameState.level = Math.floor(gameState.treeCount / 5) + 1;
         }
@@ -1196,12 +1481,6 @@
         function checkGameOver() {
             // 체력이 0이 되면 게임 오버
             if (gameState.health <= 0) {
-                gameState.gameOver = true;
-                gameState.running = false;
-            }
-            
-            // 체력이 0이 되거나 시간이 0이 되면 게임 오버
-            if (gameState.health <= 0 || gameState.timeLeft <= 0) {
                 gameState.gameOver = true;
                 gameState.running = false;
             }
@@ -1224,11 +1503,11 @@
         // UI 업데이트
         function updateUI() {
             document.getElementById('health').textContent = Math.max(0, Math.floor(gameState.health));
-            document.getElementById('time').textContent = Math.max(0, Math.floor(gameState.timeLeft));
             document.getElementById('score').textContent = gameState.score;
             document.getElementById('treeCount').textContent = gameState.treeCount;
             document.getElementById('level').textContent = gameState.level;
             document.getElementById('combo').textContent = gameState.combo;
+            document.getElementById('bananaCount').textContent = gameState.bananasCollected;
             
             // 무적 아이템 상태 표시
             const invincibilityStatus = document.getElementById('invincibilityStatus');
@@ -1287,6 +1566,7 @@
             
             // 게임 요소 그리기
             drawTrees();
+            drawBananas();
             drawInvincibilityItems();
             drawMonkey();
             drawParticles();
@@ -1295,8 +1575,6 @@
             
             // UI 업데이트
             updateUI();
-            
-            gameState.timeLeft -= 1/60;
             
             requestAnimationFrame(gameLoop);
         }
