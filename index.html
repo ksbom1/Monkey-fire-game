@@ -240,7 +240,7 @@
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="gameInfo">
             <div>체력: <span id="health">100</span> | 점수: <span id="score">0</span> | 나무: <span id="treeCount">1</span> | 레벨: <span id="level">1</span></div>
-            <div>최고점수: <span id="highScore">0</span> | 콤보: <span id="combo">0</span> | 바나나: <span id="bananaCount">0</span> | <span id="invincibilityStatus">무적 아이템 없음</span></div>
+            <div>최고점수: <span id="highScore">0</span> | 콤보: <span id="combo">0</span> | <span id="invincibilityStatus">무적 아이템 없음</span></div>
         </div>
         <div class="controls">
             <strong>게임플레이:</strong> 완전 자동 게임! 원숭이가 나무 위에서 자동으로 이동합니다!<br>
@@ -348,8 +348,7 @@
         // 연기 파티클 배열
         const smokeParticles = [];
         
-        // 바나나 배열
-        const bananas = [];
+
         
         // 키보드 입력
         const keys = {};
@@ -432,14 +431,13 @@
             gameState.treeCount = 1;
             gameState.level = 1;
             gameState.combo = 0;
-            gameState.bananasCollected = 0;
             gameState.cameraX = 0;  // 카메라 초기화
             gameState.nextTreeReady = false; // 게임 시작 시 자동 이동 준비 상태 초기화
             gameState.fireSpreadTime = 0;  // 산불 번짐 시간 초기화
             gameState.invincibilityAvailable = false; // 무적 아이템 사용 가능 여부
             
             // 배열 초기화
-            bananas.length = 0;
+
             invincibilityItems.length = 0;
             particles.length = 0;
             fireParticles.length = 0;
@@ -533,19 +531,7 @@
             document.getElementById('startScreen').style.display = 'none';
         }
         
-        // 바나나 생성 함수
-        function createBanana() {
-            return {
-                x: Math.random() * (canvas.width - 30) + gameState.cameraX,
-                y: Math.random() * (canvas.height - 200) + 100, // 하늘과 나무 사이
-                width: 20,
-                height: 15,
-                color: '#FFFF00',
-                collected: false,
-                animation: 0,
-                bounce: 0
-            };
-        }
+
         
         // 나무 쓰러지기 함수
         function makeTreeFall(treeIndex) {
@@ -1039,43 +1025,7 @@
             }
         }
         
-        // 바나나 그리기
-        function drawBananas() {
-            bananas.forEach(banana => {
-                if (!banana.collected) {
-                    // 바나나 애니메이션 (떠다니는 효과)
-                    banana.animation += 0.1;
-                    const bounce = Math.sin(banana.animation) * 3;
-                    
-                    const drawX = banana.x - gameState.cameraX;
-                    const drawY = banana.y + bounce;
-                    
-                    // 화면 밖의 바나나는 그리지 않음
-                    if (drawX + banana.width < 0 || drawX > canvas.width) {
-                        return;
-                    }
-                    
-                    // 바나나 몸통 (노란색 곡선 모양)
-                    ctx.fillStyle = banana.color;
-                    ctx.beginPath();
-                    ctx.ellipse(drawX + 10, drawY + 7.5, 10, 7.5, Math.PI/4, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // 바나나 껍질 (갈색 점)
-                    ctx.fillStyle = '#8B4513';
-                    ctx.beginPath();
-                    ctx.arc(drawX + 8, drawY + 6, 2, 0, Math.PI * 2);
-                    ctx.arc(drawX + 12, drawY + 6, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // 바나나 반짝임 효과
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-                    ctx.beginPath();
-                    ctx.arc(drawX + 7, drawY + 5, 1.5, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            });
-        }
+
         
         // 나무 그리기
         function drawTrees() {
@@ -1269,24 +1219,6 @@
         
         // 충돌 감지
         function checkCollisions() {
-            // 바나나 수집
-            bananas.forEach(banana => {
-                if (!banana.collected &&
-                    monkey.x < banana.x + banana.width &&
-                    monkey.x + monkey.width > banana.x &&
-                    monkey.y < banana.y + banana.height &&
-                    monkey.y + monkey.height > banana.y) {
-                    banana.collected = true;
-                    gameState.health += 10; // 바나나 하나당 체력 10 증가
-                    gameState.score += 20;
-                    gameState.combo++;
-                    gameState.bananasCollected++; // 바나나 수집 카운트 증가
-                    
-                    if (sounds.collect) sounds.collect();
-                    createParticleEffect(banana.x, banana.y, '#FFFF00', 'collect');
-                }
-            });
-            
             // 무적 아이템 수집
             invincibilityItems.forEach(item => {
                 if (!item.collected &&
@@ -1468,10 +1400,7 @@
                 }
             }
             
-            // 바나나 생성 (3초마다)
-            if (Math.random() < 0.02) { // 약 3초마다 (60fps * 3초 * 0.02 = 3.6초)
-                bananas.push(createBanana());
-            }
+
             
             // 레벨 업
             gameState.level = Math.floor(gameState.treeCount / 5) + 1;
@@ -1507,7 +1436,7 @@
             document.getElementById('treeCount').textContent = gameState.treeCount;
             document.getElementById('level').textContent = gameState.level;
             document.getElementById('combo').textContent = gameState.combo;
-            document.getElementById('bananaCount').textContent = gameState.bananasCollected;
+
             
             // 무적 아이템 상태 표시
             const invincibilityStatus = document.getElementById('invincibilityStatus');
@@ -1566,7 +1495,7 @@
             
             // 게임 요소 그리기
             drawTrees();
-            drawBananas();
+
             drawInvincibilityItems();
             drawMonkey();
             drawParticles();
